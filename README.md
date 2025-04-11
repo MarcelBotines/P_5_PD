@@ -1,191 +1,214 @@
-# Práctica 5: BUSES DE COMUNICACIÓN
+# Práctica 5: Buses de comunicación (I2C)
 
 ## Introducción
-En esta práctica, nos enfocaremos en la interacción entre dispositivos a través de buses de comunicación. 
-Específicamente, exploraremos el protocolo *I2C*, un tipo de bus comúnmente usado para la conexión entre componentes electrónicos. Nos concentraremos en comprender y utilizar una herramienta llamada Escáner de bus *I2C*, que nos permite identificar qué dispositivos están conectados al bus y su dirección de comunicación.
+En esta práctica, exploraremos el **bus I2C** aplicada a la placa _ESP32-S3_.
 
-## EJERCICIO PARTE 1: ESCÁNER *I2C*
+El laboratorio se dividirà en dos partes:
+1. **Escaneo de dispositivos I2C** conectados a la placa.
+2. **Visualización de la temperatura de un sensor** en una pantalla OLED y un servidor web (con el codigo aplicado de la practica 3).
 
-Código:
 
+## Parte 1: Escaneo de dispositivos
+
+### **Objetivo**
+Detectar dispositivos I2C conectados al ESP32-S3 a partir de un escaneo.
+
+#### **Código**
 ```c++
 #include <Arduino.h>
 #include <Wire.h>
-void setup()
-{
-Wire.begin();
-Serial.begin(115200);
-while (!Serial);
-Serial.println("\nI2C Scanner");
-}
-void loop()
-{
-byte error, address;
-int nDevices;
-Serial.println("Scanning...");
-nDevices = 0;
-for(address = 1; address < 127; address++ )
-{
-Wire.beginTransmission(address);
-error = Wire.endTransmission();
-if (error == 0)
-{
-Serial.print("I2C device found at address 0x");
-if (address<16)
-Serial.print("0");
-Serial.print(address,HEX);
-Serial.println(" !");
-nDevices++;
-}
-else if (error==4)
-{
-Serial.print("Unknown error at address 0x");
-if (address<16)
-Serial.print("0");
-Serial.println(address,HEX);
-}
-}
-if (nDevices == 0)
-Serial.println("No I2C devices found\n");
-else
-Serial.println("done\n");
-delay(5000);
+
+void setup() {
+  Wire.begin(18, 17); // Configurar SDA en pin 18 y SCL en pin 17
+  Serial.begin(115200);
+  while (!Serial); // Esperar a que el monitor serie esté listo
+  Serial.println("\nI2C Scanner");
 }
 
+void loop() {
+  byte error, address;
+  int nDevices = 0;
+
+  Serial.println("Scanning...");
+
+  for (address = 1; address < 127; address++) {
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+
+    if (error == 0) {
+      Serial.print("I2C device found at address 0x");
+      if (address < 16) Serial.print("0");
+      Serial.print(address, HEX);
+      Serial.println(" !");
+      nDevices++;
+    } 
+    else if (error == 4) {
+      Serial.print("Unknown error at address 0x");
+      if (address < 16) Serial.print("0");
+      Serial.println(address, HEX);
+    }
+  }
+
+  if (nDevices == 0) Serial.println("No I2C devices found\n");
+  else Serial.println("done\n");
+
+  delay(5000); // Esperar 5 segundos antes del próximo escaneo
+}
 ```
-### Funcionamiento y salida por la terminal 
-El programa proporcionado actúa como un explorador para el bus *I2C*, buscando dispositivos conectados a él. Recorre todas las posibles direcciones en el bus y verifica si hay algún dispositivo presente en cada una. Cuando encuentra un dispositivo, lo muestra en el puerto serie y también proporciona el recuento total de dispositivos encontrados.
 
-#### Funciones del código:
-EL código aparte de incluir las 2 bibliotecas : 
-#include <Arduino.h>
-#include <Wire.h>
+### **Explicación del código**
+- Se configuran los pines **SDA (18)** y **SCL (17)** para conectar los dispositivos en el _I2C_.
+- Se realiza un **escaneo de direcciones**.
+- Si un dispositivo responde, se muestra por pantalla su dirección.
+- Se repite el escaneo cada **5 segundos**.
 
-Tambien incluye de 2 funciones subprograma para hacer la funcionalidad del escáner DEL *I2C*.
-
-- ##### *Función setup():*
-  Se inicializan las comunicaciones *I2C* y serie (Serial). El bucle while (!Serial) espera hasta que el puerto serial esté disponible.
-  
-- ##### *Función loop():*
- En esta funcionalidad se realiza el escaneo del bus *I2C*. Se itera a través de todas las direcciones de 7 bits posibles (de 1 a 127) y se intenta iniciar una comunicación con cada dirección mediante *Wire.beginTransmission(address)*. 
- 
- Si no hay error (error == 0), significa que hay un dispositivo en esa dirección y se imprime su dirección (hexadecimal) en el puerto serie. 
- Si hay un error (error == 4), se imprime un mensaje indicando que hubo un error desconocido.
- 
-Después de escanear todas las direcciones, se verifica si se encontraron dispositivos. Si no encuentra ningun dispositivo, se imprime un mensaje diciendolo. Luego, se espera 5 segundos antes de comenzar el próximo escaneo.
-  
-### Salida por el puerto serie:
-
-En el caso que encuentre dispositivos conectados mostrará por pantalla:
+### **Salida esperada por pantalla**
 ```
-I2C Scanner
 Scanning...
-I2C device found at address 0x3F !
-I2C device found at address 0x68 !
+I2C device found at address 0x3C !
+I2C device found at address 0x38 !
 done
 ```
 
-Y si no se encuentran dispositivos conectados en el bus *I2C*:
-```
-I2C Scanner
-Scanning...
-No I2C devices found
-```
 
-Diagrama sobre el funcionamiento:
-```mermaid
-graph TD;
-    A[Inicio] --> B[Inicializar];
-    B --> C[Comenzar escaneo];
-    C --> D[Establecer número de dispositivos encontrados a 0];
-    D --> E[Iterar sobre las direcciones I2C];
-    E --> F{¿Dirección válida?};
-    F -->|Sí| G[Enviar solicitud de transmisión];
-    F -->|No| H[Error desconocido];
-    G --> I{¿Error igual a 0?};
-    I -->|Sí| J[Registrar dispositivo encontrado];
-    I -->|No| K[Registrar error desconocido];
-    K --> E;
-    J --> E;
-    E --> L{¿Se han explorado todas las direcciones?};
-    L -->|No| E;
-    L -->|Sí| M{¿Se encontraron dispositivos?};
-    M -->|Sí| N[Registrar finalización del escaneo];
-    M -->|No| O[Registrar ausencia de dispositivos];
-    O --> N;
-    N --> P[Retraso de 5 segundos];
-    P --> E;
-```
+## Parte 2: Sensor de temperatura y pantalla OLED
 
-## EJERCICIO PARTE 2: SENSOR TEMPERATURA Y HUMEDAD
+### **Objetivo**
+Se utiliza un **sensor AHTX0** para medir la temperatura y mostrarla en:
+- Una **pantalla OLED**.
+- Una **página web iniciada en la ESP32-S3**.
+
+#### **Código**
 ```c++
 #include <Arduino.h>
-    #include <Wire.h>
-    #include <AHT10.h>
-    #include <LiquidCrystal_I2C.h>
-    #include <Adafruit_Sensor.h>
+#include <Wire.h>
+#include <WiFi.h>
+#include <WebServer.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Adafruit_AHTX0.h>  // Librería para el sensor AHTX0
 
-    AHT10 aht10;
-    LiquidCrystal_I2C lcd(0x27, 16, 2); // Dirección I2C y dimensiones del display LCD
+// Configuración del display OLED
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET    -1  
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-    void setup() {
+// Configuración del sensor AHTX0
+Adafruit_AHTX0 aht;
+
+// Credenciales de la red WiFi
+const char* ssid = "Redmi"; 
+const char* password = "Marti12345"; 
+
+// Creación del servidor en el puerto 80
+WebServer server(80);
+
+// Variable para almacenar la temperatura
+float temperatura = 0.0;
+
+// Función para manejar la página web
+void handle_root() {
+  String HTML = "<!DOCTYPE html>\
+  <html>\
+  <head>\
+      <meta charset='UTF-8'>\
+      <meta name='viewport' content='width=device-width, initial-scale=1.0'>\
+      <title>Temperatura ESP32</title>\
+      <style>\
+          body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }\
+          h1 { color: #4CAF50; }\
+          p { font-size: 20px; }\
+      </style>\
+  </head>\
+  <body>\
+      <h1>Medición de Temperatura 🌡️</h1>\
+      <p>Temperatura actual: " + String(temperatura) + " °C</p>\
+      <p>Dirección IP: " + WiFi.localIP().toString() + "</p>\
+  </body>\
+  </html>";
+
+  server.send(200, "text/html", HTML);
+}
+
+// Configuración inicial del ESP32
+void setup() {
     Serial.begin(115200);
-    Wire.begin(); // Inicializa la comunicación I2C
-    lcd.init();   // Inicializa el display LCD
-    lcd.backlight();
-    
-    if (!aht10.begin()) {
-        Serial.println("Error al inicializar el sensor AHT10");
-        while (1);
+    Wire.begin(18, 17);  // Pines SDA y SCL
+
+    // Inicialización del display OLED
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+        Serial.println("No se encontró la pantalla OLED");
+        while (true);
     }
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(WHITE);
+
+    // Inicialización del sensor AHTX0
+    if (!aht.begin()) {
+        Serial.println("No se encontró el sensor AHTX0");
+        while (true);
     }
 
-    void loop() {
-    delay(2000); // Espera 2 segundos entre lecturas
-    
-    float temp = aht10.readTemperature(); // Lee la temperatura en Celsius
-    float hum = aht10.readHumidity();     // Lee la humedad relativa
-    
-    // Imprime los datos en el monitor serial
-    Serial.print("Temperatura: ");
-    Serial.print(temp);
-    Serial.print(" °C\t");
-    Serial.print("Humedad: ");
-    Serial.print(hum);
-    Serial.println("%");
-
-    // Imprime los datos en el display LCD
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Temp: ");
-    lcd.print(temp);
-    lcd.print(" C");
-
-    lcd.setCursor(0, 1);
-    lcd.print("Humedad: ");
-    lcd.print(hum);
-    lcd.print("%");
+    // Conexión WiFi
+    Serial.print("Conectando a WiFi...");
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(1000);
+        Serial.print(".");
     }
+
+    Serial.println("\nWiFi conectado con éxito.");
+    Serial.print("Dirección IP: ");
+    Serial.println(WiFi.localIP());
+
+    // Configuración del servidor
+    server.on("/", handle_root);
+    server.begin();
+    Serial.println("Servidor HTTP iniciado.");
+}
+
+// Bucle principal
+void loop() {
+    // Leer temperatura del AHTX0
+    sensors_event_t humidity, temp;
+    aht.getEvent(&humidity, &temp); // Obtener temperatura y humedad
+
+    temperatura = temp.temperature; // Extraer el valor de temperatura
+
+    // Mostrar en la pantalla OLED
+    display.clearDisplay();
+    display.setCursor(0, 10);
+    display.println("Temperatura:");
+    display.setTextSize(2);
+    display.setCursor(10, 30);
+    display.print(temperatura);
+    display.print(" C");
+    display.display();
+
+    // Manejar las peticiones de la web
+    server.handleClient();
+
+    // Esperar un poco antes de actualizar la medición
+    delay(2000);
+}
 ```
 
-### Funcionamiento y salida por la terminal 
-Este código está diseñado para un aparato que usa un sensor llamado AHT10 para detectar la temperatura y la humedad. Después, presenta esta información en dos lugares diferentes: en un programa de computadora que muestra datos en tiempo real (el monitor serial) y en una pantalla física que puedes ver directamente (el display LCD).
+### **Explicación del código**
+- Se activa la pantalla OLED junto con el sensor AHTX0.
+- La ESP32-S3 se enlazó a una conexión WiFi y inició un servidor web en el puerto 80.
+- La temperatura se renueva cada 2 segundos, presentándose tanto en la pantalla como en la página web.
 
-#### Funcionalidades
-
-En el setup(), se inicializa la comunicación serial, *I2C* y el display LCD, y se verifica si el sensor AHT10 está funcionando correctamente.
-En el loop(), se lee la temperatura y la humedad cada 2 segundos, se imprimen estos valores en el monitor serial y se muestran en el display LCD.
-
-### Salida por el puerto serie:
-
-La salida son la temperatura y humedad captada.
-Un ejemplo de la salida por el puerto serie:
-
+### **Salida esperada por pantalla**
 ```
-Temperatura: 22.99 °C   Humedad: 55.91%
-Temperatura: 22.99 °C   Humedad: 55.83%
-Temperatura: 22.99 °C   Humedad: 55.78%
+WiFi conectado con éxito.
+Dirección IP: 192.168.1.100
+Servidor HTTP iniciado.
 ```
 
-### Fotografías
-![Montaje](https://github.com/Marti402/Practica5/blob/main/Ilustracio.jpg)
+## Conclusiones
+- Se consiguió identificar dispositivos I2C conectados al ESP32-S3.
+- Se realizó la medición de la temperatura utilizando el sensor AHTX0, que se visualizó en una pantalla OLED.
+- Se creó un servidor web para que la temperatura se pudiera observar desde el teléfono.
+- La utilización de I2C facilitó una comunicación **eficaz** entre varios dispositivos.
