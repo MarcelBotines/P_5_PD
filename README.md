@@ -1,5 +1,4 @@
-# Práctica 5: Buses de comunicación (I2C)
-
+## P5
 ## Introducción
 En esta práctica, exploraremos el **bus I2C** aplicada a la placa _ESP32-S3_.
 
@@ -203,9 +202,6 @@ void loop() {
 ### **Salida esperada por pantalla**
 ```
 WiFi conectado con éxito.
-Dirección IP: 192.168.1.100
-Servidor HTTP iniciado.
-```
 
 ## Conclusiones
 - Se consiguió identificar dispositivos I2C conectados al ESP32-S3.
